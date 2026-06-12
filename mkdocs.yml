@@ -1,5 +1,6 @@
-# mkdocs.yml
 site_name: Backend Masterclass
+docs_dir: docs
+
 theme:
   name: material
   features:
@@ -9,7 +10,7 @@ theme:
     - search.suggest
     - content.code.copy
   palette:
-    scheme: slate          # dark mode (great for devs)
+    scheme: slate
     primary: indigo
 
 nav:
@@ -21,3 +22,42 @@ nav:
     - Controllers & Operators: 02-kubernetes/01-controllers-operators.md
     - Indexers & Informers: 02-kubernetes/02-indexers-informers.md
     - client-go: 02-kubernetes/03-client-go.md
+  - Infrastructure:
+    - Linux: 03-infrastructure/01-linux.md
+    - Docker: 03-infrastructure/02-docker.md
+    - Kubernetes Ops: 03-infrastructure/03-kubernetes-ops.md
+    - Helm: 03-infrastructure/04-helm.md
+  - APIs & Protocols:
+    - REST: 04-apis-protocols/01-rest.md
+    - gRPC: 04-apis-protocols/02-grpc.md
+    - Protobuf: 04-apis-protocols/03-protobuf.md
+    - JWT: 04-apis-protocols/04-jwt.md
+    - OpenAPI / Swagger: 04-apis-protocols/05-openapi-swagger.md
+  - Data Stores & Messaging:
+    - PostgreSQL: 05-data-stores-messaging/01-postgresql.md
+    - Redis: 05-data-stores-messaging/02-redis.md
+    - Kafka: 05-data-stores-messaging/03-kafka.md
+    - RabbitMQ: 05-data-stores-messaging/04-rabbitmq.md
+  - DevOps & Tools:
+    - Git: 06-devops-tools/01-git.md
+    - CI/CD: 06-devops-tools/02-cicd.md
+    - API Clients: 06-devops-tools/03-api-clients.md
+  - Profiling & Testing:
+    - pprof: 07-profiling-debugging-testing/01-pprof.md
+    - Delve: 07-profiling-debugging-testing/02-delve.md
+    - Ginkgo & Gomega: 07-profiling-debugging-testing/03-ginkgo-gomega.md
+    - Counterfeiter: 07-profiling-debugging-testing/04-counterfeiter.md
+  - Observability:
+    - Prometheus: 08-observability/01-prometheus.md
+    - Grafana: 08-observability/02-grafana.md
+    - PagerDuty & Alerting: 08-observability/03-pagerduty-alerting.md
+  - Architecture:
+    - Distributed Systems: 09-architecture/01-distributed-systems.md
+    - Microservices: 09-architecture/02-microservices.md
+  - Methodology:
+    - DSA: 10-methodology/01-dsa.md
+    - Agile / Scrum: 10-methodology/02-agile-scrum.md
+  - AI Tooling:
+    - RAG: 11-ai-tooling/01-rag.md
+    - LangChain: 11-ai-tooling/02-langchain.md
+    - MCP: 11-ai-tooling/03-mcp.md
