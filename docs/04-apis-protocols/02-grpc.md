@@ -145,5 +145,33 @@ if status.Code(err) == codes.DeadlineExceeded { /* handle */ }
 
 ## My Notes
 
-<!-- ADD YOUR PERSONAL NOTES HERE -->
+gRPC is designed for high-performance, low-latency communication. It moves away from traditional REST/JSON paradigms by relying on three core pillars: HTTP/2, Protocol Buffers, and Typesafe Code Generation.
+
+### 1.1 HTTP/2 Multiplexing vs. HTTP/1.1
+Traditional HTTP/1.1 suffers from **Head-of-Line (HOL) Blocking**. If multiple requests share a connection, they must wait in a sequential line. 
+
+HTTP/2 solves this by opening **one single TCP connection** and splitting it into thousands of independent, bi-directional **Streams**. 
+*   **Frames:** Data is broken down into tiny binary chunks called frames.
+*   **Concurrency:** Frames from multiple different streams are interspersed on the same wire simultaneously.
+*   **Efficiency:** This eliminates the costly TCP/TLS handshakes required to constantly open and close connections.
+
+### 1.2 Stream-Level Flow Control (Backpressure)
+To prevent a single massive stream (like a file download) from hogging the single TCP connection, HTTP/2 uses a **Credit-Based Window System**.
+
+*   **The Bank Account Analogy:** The client tells the server its memory buffer limit (e.g., 64 KB). The server immediately deducts data from this credit limit the moment it puts frames on the wire.
+*   **In-Flight Protection:** Because the server deducts credit *before* the data arrives at the client, the network can never overflow the client's buffer.
+*   **Window Updates:** As the client processes data and frees up memory, it sends a `WINDOW_UPDATE` frame to grant the server more credit. If credit hits zero, the gRPC framework pauses the executing Go routine on the server side until credit is restored.
+
+### 1.3 Protocol Buffers and Code Generation
+*   **Binary Serialization:** Instead of heavy JSON text strings, Protobuf translates descriptive keys into tiny numerical tags. This dramatically shrinks payload sizes and speeds up parsing.
+*   **The Strict Contract:** The `.proto` file serves as the source of truth. Both client and server compile native code (like Go interfaces and structs) from this file, ensuring compile-time safety and preventing silent runtime errors if a field name changes.
+
+### 1.4 Single Server, Multiple Services
+A common misconception is needing multiple gRPC servers for multiple services. 
+
+*   **The Apartment Building Analogy:** The `grpc.Server` is the building entrance (e.g., port `50051`). The individual services (`ProfileService`, `OrderService`) are the apartment units.
+*   **Registration:** When you call `RegisterProfileServiceServer(grpcServer, &struct)`, you are adding a path to the server's internal routing map.
+*   **Routing:** The server reads the HTTP/2 path (like `/profile.ProfileService/GetProfile`) and routes the incoming bytes to the exact Go struct registered for that path.
+
+
 
