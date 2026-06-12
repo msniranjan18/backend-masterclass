@@ -1,0 +1,23 @@
+# mkdocs.yml
+site_name: Backend Masterclass
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - content.code.copy
+  palette:
+    scheme: slate          # dark mode (great for devs)
+    primary: indigo
+
+nav:
+  - Home: README.md
+  - Languages:
+    - Golang: 01-languages/01-golang.md
+    - Python: 01-languages/02-python.md
+  - Kubernetes:
+    - Controllers & Operators: 02-kubernetes/01-controllers-operators.md
+    - Indexers & Informers: 02-kubernetes/02-indexers-informers.md
+    - client-go: 02-kubernetes/03-client-go.md
