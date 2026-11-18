@@ -1,6 +1,6 @@
 # Table of contents
 
-* [Golang](README.md)
+* [Golang](golang/README.md)
   * [Concurrency](golang/concurrency/README.md)
     * [Goroutine Scheduling](golang/concurrency/goroutine-scheduling.md)
     * [Select](golang/concurrency/select.md)
