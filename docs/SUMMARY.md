@@ -7,6 +7,8 @@
     * [Sync and Context](golang/concurrency/sync-and-context.md)
     * [Channels](golang/concurrency/channels/README.md)
       * [Channel Implementation](golang/concurrency/channels/channel-implementation.md)
+    * [Concurrency Interview Scenarios](golang/concurrency/channels/concurrency-interview-scenarios/README.md)
+      * [Rate Limiter](golang/concurrency/channels/concurrency-interview-scenarios/rate-limiter.md)      
     * [Testing Concurrency](golang/concurrency/testing-concurrency.md)
   * [Memory Leaks](golang/memory-leaks.md)
   * [Benchmarking & Profiling](golang/benchmarking-and-profiling/README.md)
