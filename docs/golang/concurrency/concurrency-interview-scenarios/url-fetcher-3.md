@@ -191,7 +191,7 @@ $
 ```
 
 This version moves from a script-level concurrency example to production-grade Go HTTP engineering. By decoupling the request construction (NewRequestWithContext), transport management (sharedHttpClient), and execution (Do), you gain full control over cancellation trees, TCP connection pooling, and resource limits.
-## 1. Why This Architecture Beats Your Previous Versions
+## Why This Architecture Beats Your Previous Versions
 | Aspect | Old (`http.Get` / `client.Get`) | Current (`NewRequestWithContext` + `sharedHttpClient.Do`) |
 |---|---|---|
 | **Cancellation** | None (`http.Get` uses `context.Background()` internally). A slow server holds the goroutine and socket open forever. | Hierarchical cancellation: canceling `parentCtx` (at 10s or on shutdown) immediately aborts every in-flight TCP dial, TLS handshake, and body read across all workers. |
@@ -202,3 +202,9 @@ This version moves from a script-level concurrency example to production-grade G
 | **Error Propagation** | Errors frequently swallowed or printed inside the worker, mixing I/O noise with business logic. | Errors travel as structured `result.err` and are handled centrally in `main()`, keeping workers clean and testable. |
 | **Testability** | Hard to stub, since `http.Get` hits the real network directly. | Inject a fake `*http.Client` (or custom `Transport`) for unit tests without hitting the network. |
 |---|---|---|
+
+**Important**
+the above code has `Timeout: 3 * time.Second` on `sharedHttpClient` and `1 * time.Second` on `childCtx`.
+In Go, whichever deadline hits first wins. Since childCtx is 1s, sharedHttpClient.Timeout (3s) will never trigger—and if you later want a single slow URL to take 2s while others take 1s, the 3s client timeout will silently override a longer childCtx.
+
+Fix: When using context.WithTimeout per request, omit Timeout on sharedHttpClient (leave it 0) so context deadlines serve as the single source of truth, and configure phase-level protections on http.Transport instead (such as ResponseHeaderTimeout and IdleConnTimeout).
