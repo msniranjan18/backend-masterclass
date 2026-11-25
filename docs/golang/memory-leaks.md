@@ -509,7 +509,8 @@ Essential production skill.
 ## Enable pprof
 
 ```go
-import _ "net/http/pprof"go func() {
+import _ "net/http/pprof"
+go func() {
     log.Println(http.ListenAndServe("localhost:6060", nil))
 }()
 ```

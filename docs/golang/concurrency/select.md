@@ -1,10 +1,8 @@
 # Select
 
-Let's dive into the `select` statement. 🔀
-
 In Go, `select` is the ultimate traffic cop for concurrency. While a standard `switch` statement chooses a path based on a value, a `select` statement chooses a path based on which channel operation is ready to proceed.
 
-If no channels are ready, `select` blocks the current goroutine until one becomes available. If multiple are ready at the same time, Go picks one completely at random to ensure fairness. 🎲
+If no channels are ready, `select` blocks the current goroutine until one becomes available. If multiple are ready at the same time, Go picks one completely at random to ensure fairness.
 
 Here are three essential scenarios where `select` is commonly used, along with working examples.
 
