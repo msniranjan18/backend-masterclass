@@ -181,6 +181,31 @@ If your Kubernetes pod has a `1 GiB` memory limit, and your live heap suddenly s
 * You set `GOMEMLIMIT` to roughly **80%–90% of your container's hard memory limit** (e.g., `900MiB` for a `1GiB` container).
 * You can even set `GOGC=off` alongside `GOMEMLIMIT=900MiB`! When you do this, Go skips unnecessary GC cycles completely while memory is plentiful, and smoothly runs GC just in time to keep total memory under `900MiB`.
 
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-service
+spec:
+  containers:
+  - name: app
+    image: my-service:latest
+    resources:
+      limits:
+        memory: "1Gi"  # Hard limit
+    env:
+    # Set GOMEMLIMIT to 900MiB (90% of 1Gi)
+    - name: GOMEMLIMIT
+      value: "900MiB"
+```
+
+**Best Practice:**
+The text suggests GOGC=off, but in production, keep GOGC at its default (100) unless your memory is extremely stable and low-volume.
+
+Why not GOGC=off? GOGC=off disables the growth-based pacing. If you have a memory spike or a slow leak, the GC will never run until it hits GOMEMLIMIT. This can lead to massive, infrequent pauses.
+
+Let GOMEMLIMIT act as the hard "ceiling" and GOGC act as the "smooth operator" that runs frequently to keep memory low below that ceiling.
+
 ### 3.3 Avoiding the "GC Death Spiral" (Thrashing)
 
 What if your application genuinely holds `895 MiB` of live, active data in RAM, and `GOMEMLIMIT` is `900 MiB`?
@@ -276,6 +301,49 @@ type OptimizedStruct struct {
 }
 ```
 
+#### How Go lays this out in memory:
+random order fields (`UnoptimizedStruct`)
+
+- `Active` (bool) takes 1 byte.
+- Padding: To keep Count aligned to 8 bytes, Go inserts 7 empty bytes after Active.
+- `Count` (int64) takes 8 bytes.
+- Padding: To keep Code aligned (though Code is small, the struct itself often aligns to the largest field), and because Code is only 1 byte, Go adds 7 more bytes of padding at the end to make the total struct size a multiple of 8.
+
+**Total Size:** 1 (bool) + 7 (padding) + 8 (int64) + 1 (uint8) + 7 (padding) = 24 bytes.
+
+You are paying for 14 bytes of empty space that holds no data.
+
+The Solution: Sort Fields by Size (`OptimizedStruct`)
+If you reorder the fields from largest to smallest, you can pack them tighter:
+- Count (int64) takes 8 bytes.
+- Active (bool) takes 1 byte.
+- Code (uint8) takes 1 byte.
+- Padding: Only 6 bytes of padding at the end to align the total struct size to 8 bytes.
+
+**Total Size:** 8 + 1 + 1 + 6 = 16 bytes.
+
+**Result:** You saved 8 bytes per instance (33% reduction).
+
+#### Why Does This Matter in Production?
+- **RAM Savings: If you have 1 million instances of this struct, the unoptimized version uses 24 MB. The optimized version uses 16 MB. That’s 8 MB of wasted RAM just on padding.
+- **GC Pressure:** The Garbage Collector has to scan more memory. Even though it doesn’t scan the padding bytes, it still has to track the memory pages. Less memory = faster GC cycles.
+- **Cache Efficiency:** CPU caches are limited. If your struct is smaller, more instances fit into the same cache line. This means fewer cache misses when your code loops through data.
+
+#### The Golden Rule for Structs
+Always order struct fields from largest alignment to smallest.
+
+`int64`, `uint64`, `float64`, `pointer`, `slice`, `map`, `struct` (8 bytes)
+`int32`, `uint32`, `float32` (4 bytes)
+`int16`, `uint16` (2 bytes)
+`int8`, `uint8`, `bool` (1 byte)
+
+#### When Can You Ignore This?
+- Small structs (< 16 bytes): The difference is negligible.
+- Memory is cheap: If you aren’t running a high-scale service, it doesn’t matter.
+- You use sync.Pool or arena allocators: These often handle alignment internally.
+
+But for production-grade Go, especially in performance-critical paths (like network packets, database rows, or cache entries), always sort your fields. It’s a free optimization.
+
 ---
 
 ## Chapter 5: Advanced Zero-Allocation & Low-GC Patterns in Go
@@ -284,10 +352,39 @@ type OptimizedStruct struct {
 
 `sync.Pool` lets goroutines borrow and return temporary objects (like buffers or encoders) so you don't allocate new heap memory on every HTTP/gRPC request. When a GC cycle runs, Go automatically clears idle items from `sync.Pool` so unused memory isn't hoarded forever.
 
-#### The #1 `sync.Pool` Production Bug: Buffer Bloat
-Suppose 99.9% of your requests need a **4 KB** buffer, so your pool holds 4 KB buffers. Suddenly, one user uploads a **50 MB** payload. Your buffer grows to 50 MB, and when the request finishes, `defer pool.Put(buf)` puts that **50 MB buffer back into the pool**! Over time, every slot in the pool gets filled with 50 MB buffers, causing an OOM crash.
+Imagine a busy restaurant kitchen.
+- **Without `sync.Pool`:** Every chef buys a new knife for every single dish, then throws it away. (Expensive, wasteful).
+- **With `sync.Pool`:** Chefs borrow a knife from a shared shelf, use it, and put it back. Next chef grabs it from the shelf. No new knives needed.
 
-**The Fix:** Always check capacity before returning a buffer to the pool, and reset its length (`buf.Reset()`).
+```go
+var bufferPool = sync.Pool{
+    New: func() interface{} {
+        // If the pool is empty, create a new 1KB buffer
+        return make([]byte, 1024)
+    },
+}
+
+func handleRequest() {
+    // 1. Borrow a buffer (if available) or create a new one
+    buf := bufferPool.Get().([]byte)
+    
+    // 2. Use the buffer
+    fmt.Println("Processing request with buffer...")
+    
+    // 3. Reset the buffer for the next user
+    buf = buf[:0] 
+    
+    // 4. Return it to the pool (do NOT nil it out!)
+    bufferPool.Put(buf)
+}
+```
+
+#### The #1 `sync.Pool` Production Bug: Buffer Bloat
+Suppose 99.9% of your requests need a **4 KB** buffer, so your pool holds 4 KB buffers. Suddenly, one user uploads a **50 MB** payload. Your buffer grows to 50 MB, and when the request finishes, `defer pool.Put(buf)` puts that **50 MB buffer back into the pool**! Now, the pool holds a 50 MB buffer. All future requests borrow this huge buffer, wasting memory even if they only need 4 KB.
+Result: Memory usage stays high, and the GC can’t free it because the pool is holding it.
+
+**The Fix:** Always check capacity before returning a buffer to the pool, and reset its length buf = buf[:0] (`buf.Reset()`).
+
 
 ```go
 package mempool
