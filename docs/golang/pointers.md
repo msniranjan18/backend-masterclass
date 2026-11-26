@@ -86,6 +86,23 @@ Go's Garbage Collector is **non-compacting** (it never moves objects in memory),
 * If an object or slice contains **zero pointers** (for example, `[]int64` or a struct of integers and fixed byte arrays), Go marks that memory block as **`noscan`**. The GC skips scanning its contents completely—whether it is 100 bytes or 100 MB!
 * If you replace value structs with pointers (`[]*User` instead of `[]User`), you turn 1 memory block into 100,001 separate heap allocations and force the GC to chase 100,000 pointers on every single GC cycle.
 
+#### Explanation:
+When you have []int64, Go actually has two parts in memory:
+
+1. **The Slice Header (The "Box"):** This is a small struct (24 bytes) that contains:
+- Data (Pointer) → Points to the underlying array.
+- Len (Integer)
+- Cap (Integer)
+- This header is scanned by the GC because it contains a pointer.
+
+2. **The Underlying Array (The "Contents"):** This is the actual block of memory holding the int64 values.
+- int64 is a primitive type. It has zero pointers.
+- This array is marked noscan.
+
+so the GC does check the Slice Header to find the array. But once it finds the array, it looks at the contents of the array.
+- If the array contains []*User (pointers), the GC must follow every single one.
+- If the array contains []int64 (values), the GC sees no pointers inside and skips scanning the entire 100 MB of data.
+
 ---
 
 ## Chapter 2: The Golden Rules of When to Use a Pointer (`*T`)
