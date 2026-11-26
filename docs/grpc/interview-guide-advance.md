@@ -1,4 +1,4 @@
-# gRPC Deep Dive: A Staff Engineer's Interview Guide
+# Interview Guide
 
 > A book-style guide to the concepts, scenarios, failure modes and trade-offs of gRPC that come up in staff/principal-level interviews. All code is Go (`google.golang.org/grpc`), because that is where the sharpest production lessons live, but the concepts apply to every gRPC implementation.
 
